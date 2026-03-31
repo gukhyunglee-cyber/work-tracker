@@ -1,0 +1,70 @@
+[이국형] 2026-03-31 16:11
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <!-- 기존 head 내용 그대로 -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <!-- ... 기존 스타일과 Firebase CDN 그대로 ... -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <!-- 기존 스타일 그대로 -->
+</head>
+<body>
+  <!-- 기존 HTML 구조 그대로 (login-screen, app, content 등) -->
+  <div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;">
+    <!-- 기존 로그인 UI 그대로 -->
+    <div style="font-size:56px;margin-bottom:20px;"></div>
+    <div style="font-size:24px;font-weight:900;color:var(--text);margin-bottom:8px;"></div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:48px;text-align:center;"><br></div>
+    <button id="google-login-btn" onclick="signInWithGoogle()" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dadce0;border-radius:12px;padding:14px 24px;font-size:15px;font-weight:600;color:#3c4043;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.1);width:100%;max-width:280px;justify-content:center;">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20"> Google
+    </button>
+    <div id="login-error" style="margin-top:16px;font-size:12px;color:#f43f5e;display:none;"></div>
+  </div>
+  <!-- 나머지 HTML 그대로 -->
+</body>
+<script>
+  // Firebase 설정 (기존 그대로)
+  var firebaseConfig = {
+    apiKey: "AIzaSyChzhjHizptptYEVs6nhhg7NdaanVtLg",
+    authDomain: "gukhyunglee-cyber.github.io",
+    projectId: "work-tracker-2040e",
+    storageBucket: "work-tracker-2040e.firebasestorage.app",
+    messagingSenderId: "483101798842",
+    appId: "1:483101798842:web:9ffeb1e9671e2059abad83"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.firestore();
+  var auth = firebase.auth();
+  var currentUid = null;
+
+  // 🔧 수정: signInWithPopup으로 변경 (redirect → popup)
+  function signInWithGoogle() {
+    var provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt: 'select_account'});
+    var btn = document.getElementById('google-login-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px;">로그인 중...</span>';
+    
+    auth.signInWithPopup(provider)
+      .then(function(result) {
+        // 로그인 성공 - onAuthStateChanged에서 처리됨
+        console.log('로그인 성공:', result.user);
+      })
+      .catch(function(e) {
+        var el = document.getElementById('login-error');
+        if(el) {
+          el.textContent = e.message;
+          el.style.display = 'block';
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20"> Google';
+        console.error('로그인 실패:', e);
+      });
+  }
+
+  // 🔧 수정: getRedirectResult 제거 (popup에서는 필요 없음)
+  function confirmSignOut() {
+    if(confirm(
