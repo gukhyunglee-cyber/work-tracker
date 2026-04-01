@@ -994,14 +994,27 @@ function getMSetting(){
 
 function compute(){
   var allDays=daysUpto(MONTH,TODAY),ms=getMSetting();
-  var monthWorked=allDays.reduce((s,d)=>{
+  // 이번달 전체 날짜 (근태는 미래 날짜도 즉시 반영)
+  var _cp=MONTH.split('-'); var _cy2=Number(_cp[0]), _cm2=Number(_cp[1]);
+  var _mTotal=new Date(_cy2,_cm2,0).getDate();
+  var allMonthDays=[];
+  for(var _i=1;_i<=_mTotal;_i++) allMonthDays.push(MONTH+'-'+(String(_i).padStart(2,'0')));
+
+  var monthWorked=allDays.reduce(function(s,d){
     var r=records[d];if(!r)return s;
     // 유급근태: 의무시간 차감 없이 8h 근무로 계산
     if((r.leave&&r.leave.type)==='유급근태') return s+480;
     return s+(calcWorked(r.checkIn,r.checkOut,r.breakMin)||0);
   },0);
-  // 근태 차감 (연차/반차/직접입력 → 의무시간에서 제외)
-  var leaveMinutes=allDays.reduce((s,d)=>{
+  // 유급근태 미래 날짜도 즉시 누적근무에 반영
+  allMonthDays.forEach(function(d){
+    if(d<=TODAY) return; // 이미 위에서 처리
+    var r=records[d]; if(!r||!r.leave) return;
+    if(r.leave.type==='유급근태') monthWorked+=480;
+  });
+
+  // 근태 차감: 이번달 전체 기준 (미래 근태도 즉시 차감)
+  var leaveMinutes=allMonthDays.reduce(function(s,d){
     var r=records[d];if(!r||!r.leave)return s;
     if(r.leave.type==='유급근태') return s; // 유급근태는 의무시간 차감 안함
     return s+(Number(r.leave.minutes)||0);
