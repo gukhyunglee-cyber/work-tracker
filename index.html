@@ -264,10 +264,10 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v1.0</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
-      <div class="missing-badge" id="missing-badge" style="display:none"></div>
     </div>
   </div>
 
@@ -1073,8 +1073,7 @@ function render(){
   var tw=calcWorked(rec.checkIn,rec.checkOut,rec.breakMin);
 
   document.getElementById('header-month').textContent=MONTH.replace('-','년 ')+'월';
-  var mb=document.getElementById('missing-badge');
-  mb.style.display=missingCnt>0?'':'none';mb.textContent=`미입력 ${missingCnt}일`;
+  // missing-badge 제거됨
 
   // 오늘 현황
   var tin=document.getElementById('t-in');
@@ -1116,7 +1115,7 @@ function render(){
   }
   document.getElementById('duty-label').textContent='의무: '+Math.floor(effectiveRequired/60)+'h';
   var ml=document.getElementById('missing-label');
-  ml.style.display=missingCnt>0?'':'none';ml.textContent=`미입력 ${missingCnt}일`;
+  if(ml){ml.style.display=missingCnt>0?'':'none';ml.textContent='미입력 '+missingCnt+'일';}
 
   // 기록
   document.getElementById('rec-month-lbl').textContent=MONTH.replace('-','년 ')+'월 근무 기록';
