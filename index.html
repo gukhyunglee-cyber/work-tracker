@@ -738,12 +738,13 @@ function showSyncStatus(state){
 
 // ─── Firestore 저장 (debounce) ────────────────────────────────────────────────
 var _saveTimer=null;
+var _syncDoneTimer=null;
 function saveToFirestore(){
   if(!currentUid) return;
   if(_saveTimer) clearTimeout(_saveTimer);
+  showSyncStatus('saving');
   _saveTimer=setTimeout(function(){
     _isSaving=true;
-    showSyncStatus('saving');
     db.collection('users').doc(currentUid).set({
       records:records,
       settings:settings,
@@ -753,14 +754,18 @@ function saveToFirestore(){
       theme:isLight?'light':'dark',
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     }).then(function(){
+      _isSaving=false;
       showSyncStatus('synced');
-      // 저장 완료 후 약간 딜레이 후 플래그 해제
-      setTimeout(function(){_isSaving=false;},500);
     }).catch(function(e){
       console.error('저장 실패:',e);
       _isSaving=false;
       showSyncStatus('error');
     });
+    // 안전장치: 3초 후에도 플래그 남아있으면 강제 해제
+    if(_syncDoneTimer) clearTimeout(_syncDoneTimer);
+    _syncDoneTimer=setTimeout(function(){
+      if(_isSaving){_isSaving=false;showSyncStatus('synced');}
+    },3000);
   },800);
 }
 
