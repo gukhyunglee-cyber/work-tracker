@@ -37,7 +37,7 @@ html[data-theme="light"]{
   --scrollbar:#c0c8d8;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;background:var(--bg);font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;color:var(--text);overscroll-behavior:none;}
+html,body{height:100%;background:var(--bg);font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;color:var(--text);overscroll-behavior:auto;}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto;background:var(--bg);}
 .mono{font-family:'JetBrains Mono',monospace;}
 #header{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:var(--bg);}
@@ -1162,8 +1162,8 @@ function render(){
     ['근태 차감',_lm>0?'-'+fmtH(_lm):'—',_lm>0?'#a78bfa':'#8b9ab8'],
     ['대체공휴일 차감',chDeductMinutes>0?'-'+fmtH(chDeductMinutes):'—',chDeductMinutes>0?'#60a5fa':'#8b9ab8'],
     ['실 의무시간',fmtH(effectiveRequired),'#eef2ff'],
-    ['누적 근무시간',fmtH(monthWorked),'#22c55e'],
-    ['남은 시간',remaining<=0?'초과 '+fmtH(-remaining):fmtH(remaining),remaining<=0?'#22c55e':'#f43f5e'],
+    ['누적 근무시간',fmtMin(monthWorked),'#22c55e'],
+    ['남은 시간',remaining<=0?'초과 '+fmtMin(-remaining,true):fmtMin(remaining),remaining<=0?'#22c55e':'#f43f5e'],
     ['일평균',remaining<=0?'달성!':perDayMin?fmtMin(perDayMin):'—',remaining<=0?'#22c55e':'#60a5fa'],
     ['남은 근무일',remaining<=0?'—':`${remainWorkDays}일`,'#8b9ab8'],
     ['여유시간',fmtMin(accumMinutes,true),accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8'],
@@ -1948,6 +1948,8 @@ function saveLeave(){
     records[leaveDate]=r;
     save(); render();
     if(typeof renderCal==='function') renderCal();
+    if(typeof renderChList==='function') renderChList();
+    if(typeof renderLeavePage==='function') renderLeavePage();
     closeLeave(); return;
   }
 
@@ -1959,6 +1961,8 @@ function saveLeave(){
     records[leaveDate]=r;
     save(); render();
     if(typeof renderCal==='function') renderCal();
+    if(typeof renderChList==='function') renderChList();
+    if(typeof renderLeavePage==='function') renderLeavePage();
     closeLeave(); return;
   }
   var min=0;
@@ -1978,6 +1982,8 @@ function saveLeave(){
   customHolidays.delete(leaveDate);
   save(); render();
   if(typeof renderCal==='function') renderCal();
+  if(typeof renderChList==='function') renderChList();
+  if(typeof renderLeavePage==='function') renderLeavePage();
   closeLeave();
 }
 
@@ -1989,6 +1995,8 @@ function deleteLeave(){
   records[leaveDate]=r;
   save(); render();
   if(typeof renderCal==='function') renderCal();
+  if(typeof renderChList==='function') renderChList();
+  if(typeof renderLeavePage==='function') renderLeavePage();
   renderChList();
   closeLeave();
 }
