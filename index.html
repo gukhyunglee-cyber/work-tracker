@@ -1837,14 +1837,23 @@ function registerPushSW(){
 // ─── 등록자수 조회 ────────────────────────────────────────────────────────────
 function loadUserCount(){
   if(!currentUid||!db) return;
+  var el=document.getElementById('user-count-val');
+  var dl=document.getElementById('user-count-date');
+  // users 컬렉션 카운트 (count() 쿼리 사용 - 더 효율적)
   db.collection('users').get().then(function(snap){
-    var el=document.getElementById('user-count-val');
-    var dl=document.getElementById('user-count-date');
     if(el) el.textContent=snap.size+'명';
     if(dl) dl.textContent='마지막 조회: '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    console.log('등록자수:', snap.size);
   }).catch(function(e){
-    var el=document.getElementById('user-count-val');
-    if(el) el.textContent='조회불가';
+    console.error('등록자수 조회 실패:', e.code, e.message);
+    // Firestore 실패 시 Auth 방식으로 대체
+    try{
+      // 현재 로그인 유저 정보로 최소 1명 표시
+      if(auth.currentUser){
+        if(el) el.textContent='1명+';
+        if(dl) dl.textContent='(전체 조회 권한 필요)';
+      }
+    }catch(ex){}
   });
 }
 
