@@ -694,9 +694,21 @@ function loadFromFirestore(){
   _unsubscribe=db.collection('users').doc(currentUid).onSnapshot(
     {includeMetadataChanges:true},
     function(doc){
-      // 내 기기가 1.5초 이내에 저장한 것은 무시 (무한루프 방지)
+      // 내 기기가 2.5초 이내에 저장한 것은 무시 (무한루프 방지)
       var now=Date.now();
       if(now - _localSaveTs < 2500) return;
+
+      // 로컬 저장 시각이 Firestore보다 최신이면 → 로컬 데이터를 Firestore에 업로드
+      var localTs=parseInt(safeGet('wt_local_ts','0'))||0;
+      if(doc.exists&&doc.data().updatedAt){
+        var fsTs=doc.data().updatedAt.toMillis?doc.data().updatedAt.toMillis():0;
+        if(localTs > fsTs + 3000){
+          // 로컬이 더 최신 → Firestore로 업로드 (새로고침 전 저장 못한 데이터 복구)
+          console.log('로컬 데이터가 더 최신 → Firestore 업로드');
+          saveToFirestore();
+          return;
+        }
+      }
 
       if(doc.exists){
         var d=doc.data();
@@ -761,7 +773,7 @@ function saveToFirestore(){
       console.error('저장 실패:',e);
       showSyncStatus('error');
     });
-  },800);
+  },200);
 }
 
 // iOS Safari 감지 및 홈화면 추가 안내
@@ -956,7 +968,9 @@ function save(){
   safeSet('wt_set',JSON.stringify(settings));
   safeSet('wt_ch',JSON.stringify(Array.from(customHolidays)));
   safeSet('wt_lc',JSON.stringify(leaveConfig));
-  // 메모리 캐시도 즉시 업데이트
+  // 로컬 저장 시각 기록 (재로드 후 비교용)
+  var ts=String(Date.now());
+  safeSet('wt_local_ts',ts);
   _mem['wt_rec']=recStr;
   saveToFirestore();
 }
