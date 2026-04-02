@@ -266,7 +266,7 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
-      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v1.0</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v3.0</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
@@ -716,8 +716,7 @@ function loadFromFirestore(){
         if(d.settings) settings=d.settings;
         if(d.customHolidays) customHolidays=new Set(d.customHolidays);
         if(d.leaveConfig) leaveConfig=d.leaveConfig;
-        if(typeof d.use24h==='boolean') use24h=d.use24h;
-        if(d.theme){isLight=d.theme==='light';try{applyTheme();}catch(ex){}}
+        // theme, use24h는 기기별 설정 → Firestore에서 덮어쓰지 않음
         // 로컬 캐시 업데이트
         try{var _rs=JSON.stringify(records);safeSet('wt_rec',_rs);_mem['wt_rec']=_rs;}catch(ex){}
         try{safeSet('wt_set',JSON.stringify(settings));}catch(ex){}
@@ -764,8 +763,6 @@ function saveToFirestore(){
       settings:settings,
       customHolidays:Array.from(customHolidays),
       leaveConfig:leaveConfig,
-      use24h:use24h,
-      theme:isLight?'light':'dark',
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     }).then(function(){
       showSyncStatus('synced');
@@ -1246,7 +1243,7 @@ function updateTabColors(activeId){
 function handleCheckIn(){var r=records[TODAY]||{};records[TODAY]={...r,checkIn:nowTime(),breakMin:(r.breakMin!==undefined&&r.breakMin!==null?r.breakMin:60)};save();render();}
 function handleCheckOut(){var r=records[TODAY]||{};records[TODAY]={...r,checkOut:nowTime(),breakMin:(r.breakMin!==undefined&&r.breakMin!==null?r.breakMin:60)};save();render();}
 
-function toggle24h(val){use24h=val;safeSet('wt_24h',val?'true':'false');render();}
+function toggle24h(val){use24h=val;var _tv=val?'true':'false';safeSet('wt_24h',_tv);_mem['wt_24h']=_tv;render();}
 
 
 // 시간 문자열 파싱: "0900" → "09:00", "09:00" → "09:00", "930" → "09:30"
@@ -1374,7 +1371,7 @@ function applyTheme(){
 function toggleTheme(val){
   if(typeof val==='boolean') isLight=val;
   else isLight=!isLight;
-  safeSet('wt_theme', isLight?'light':'dark');
+  var _tv=isLight?'light':'dark';safeSet('wt_theme',_tv);_mem['wt_theme']=_tv;
   applyTheme();
 }
 try{applyTheme();}catch(e){}
