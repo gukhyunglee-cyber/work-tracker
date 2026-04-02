@@ -696,7 +696,7 @@ function loadFromFirestore(){
     function(doc){
       // 내 기기가 1.5초 이내에 저장한 것은 무시 (무한루프 방지)
       var now=Date.now();
-      if(now - _localSaveTs < 1500) return;
+      if(now - _localSaveTs < 2500) return;
 
       if(doc.exists){
         var d=doc.data();
@@ -707,8 +707,9 @@ function loadFromFirestore(){
         if(typeof d.use24h==='boolean') use24h=d.use24h;
         if(d.theme){isLight=d.theme==='light';try{applyTheme();}catch(ex){}}
         // 로컬 캐시 업데이트
-        try{safeSet('wt_rec',JSON.stringify(records));}catch(ex){}
+        try{var _rs=JSON.stringify(records);safeSet('wt_rec',_rs);_mem['wt_rec']=_rs;}catch(ex){}
         try{safeSet('wt_set',JSON.stringify(settings));}catch(ex){}
+        try{safeSet('wt_ch',JSON.stringify(Array.from(customHolidays)));}catch(ex){}
         try{safeSet('wt_lc',JSON.stringify(leaveConfig));}catch(ex){}
       }
       // 모든 탭 렌더링
@@ -950,10 +951,13 @@ var selectedLeaveYear=0; // 근태 페이지에서 선택한 연도 (0=현재)
 var TODAY=todayStr(),MONTH=curMonth(),editDate=null,curView='dashboard';
 
 function save(){
-  safeSet('wt_rec',JSON.stringify(records));
+  var recStr=JSON.stringify(records);
+  safeSet('wt_rec',recStr);
   safeSet('wt_set',JSON.stringify(settings));
   safeSet('wt_ch',JSON.stringify(Array.from(customHolidays)));
   safeSet('wt_lc',JSON.stringify(leaveConfig));
+  // 메모리 캐시도 즉시 업데이트
+  _mem['wt_rec']=recStr;
   saveToFirestore();
 }
 function calcAutoRequired(monthKey){
@@ -1984,7 +1988,7 @@ function saveLeave(){
   var r=records[leaveDate]||{};
   var leaveObj={type:leaveType, minutes:min};
   if(memo) leaveObj.memo=memo;
-  records[leaveDate]={...r, leave:leaveObj, memo:memo||r.memo};
+  r.leave=leaveObj; r.memo=memo||r.memo||""; records[leaveDate]=r;
   customHolidays.delete(leaveDate);
   save(); render();
   if(typeof renderCal==='function') renderCal();
