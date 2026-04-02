@@ -266,7 +266,7 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
-      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v3.0</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.1</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
@@ -391,6 +391,15 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
           </div>
           <div style="font-size:10px;color:var(--sub);margin-top:8px;">매일 설정 시간에 근무 기록 입력 알람을 보냅니다</div>
         </div>
+      </div>
+
+      <div class="card" id="user-count-card">
+        <div class="lbl" style="margin-bottom:10px;">👥 등록자 현황</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:13px;color:var(--sub);">총 등록자</span>
+          <span class="mono" id="user-count-val" style="font-size:24px;font-weight:700;color:#f59e0b;">-</span>
+        </div>
+        <div style="font-size:10px;color:var(--dim);margin-top:6px;" id="user-count-date"></div>
       </div>
 
       <div class="card">
@@ -1823,6 +1832,21 @@ function registerPushSW(){
     registerPushSW();
   }
 })();
+
+
+// ─── 등록자수 조회 ────────────────────────────────────────────────────────────
+function loadUserCount(){
+  if(!currentUid||!db) return;
+  db.collection('users').get().then(function(snap){
+    var el=document.getElementById('user-count-val');
+    var dl=document.getElementById('user-count-date');
+    if(el) el.textContent=snap.size+'명';
+    if(dl) dl.textContent='마지막 조회: '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  }).catch(function(e){
+    var el=document.getElementById('user-count-val');
+    if(el) el.textContent='조회불가';
+  });
+}
 
 // ─── 좌우 스와이프 페이지 전환 (document 레벨) ───────────────────────────────
 (function(){
