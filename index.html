@@ -683,50 +683,50 @@ auth.onAuthStateChanged(function(user){
 });
 
 // ─── Firestore 실시간 동기화 ──────────────────────────────────────────────────
-var _unsubscribe=null;  // 리스너 해제용
+var _unsubscribe=null;
+var _localSaveTs=0; // 내 기기 마지막 저장 시각 (ms)
 
 function loadFromFirestore(){
   if(!currentUid) return;
-  // 기존 리스너 해제
   if(_unsubscribe) _unsubscribe();
-
-  // 동기화 상태 표시
   showSyncStatus('connecting');
 
-  // onSnapshot: 실시간 리스너 (다른 기기 변경도 즉시 반영)
-  _unsubscribe=db.collection('users').doc(currentUid).onSnapshot({includeMetadataChanges:false},function(doc){
-    // hasPendingWrites=true: 내 기기 저장 직후 → 무시하지 않고 서버 확정본만 처리
-    // fromCache=true: 로컬 캐시 → 첫 로드시에만 사용
-    if(doc.metadata&&doc.metadata.hasPendingWrites) return; // 내 기기 저장 반향 무시
-    if(doc.exists){
-      var d=doc.data();
-      // 서버 타임스탬프 기반 - 로컬보다 최신이면 적용
-      if(d.records) records=d.records;
-      if(d.settings) settings=d.settings;
-      if(d.customHolidays) customHolidays=new Set(d.customHolidays);
-      if(d.leaveConfig) leaveConfig=d.leaveConfig;
-      if(typeof d.use24h==='boolean') use24h=d.use24h;
-      if(d.theme){isLight=d.theme==='light';try{applyTheme();}catch(ex){}}
-      // 로컬에도 캐시
-      try{safeSet('wt_rec',JSON.stringify(records));}catch(ex){}
-      try{safeSet('wt_set',JSON.stringify(settings));}catch(ex){}
-      try{safeSet('wt_lc',JSON.stringify(leaveConfig));}catch(ex){}
+  _unsubscribe=db.collection('users').doc(currentUid).onSnapshot(
+    {includeMetadataChanges:true},
+    function(doc){
+      // 내 기기가 1.5초 이내에 저장한 것은 무시 (무한루프 방지)
+      var now=Date.now();
+      if(now - _localSaveTs < 1500) return;
+
+      if(doc.exists){
+        var d=doc.data();
+        if(d.records) records=d.records;
+        if(d.settings) settings=d.settings;
+        if(d.customHolidays) customHolidays=new Set(d.customHolidays);
+        if(d.leaveConfig) leaveConfig=d.leaveConfig;
+        if(typeof d.use24h==='boolean') use24h=d.use24h;
+        if(d.theme){isLight=d.theme==='light';try{applyTheme();}catch(ex){}}
+        // 로컬 캐시 업데이트
+        try{safeSet('wt_rec',JSON.stringify(records));}catch(ex){}
+        try{safeSet('wt_set',JSON.stringify(settings));}catch(ex){}
+        try{safeSet('wt_lc',JSON.stringify(leaveConfig));}catch(ex){}
+      }
+      // 모든 탭 렌더링
+      try{render();}catch(ex){}
+      try{renderChList();}catch(ex){}
+      try{renderCal();}catch(ex){}
+      try{renderLeavePage();}catch(ex){}
+      try{getLeaveConfigYear();}catch(ex){}
+      try{updateTabColors(curView||'dashboard');}catch(ex){}
+      if(curView==='settings') try{initPushUI();}catch(ex){}
+      showSyncStatus('synced');
+    },
+    function(e){
+      console.error('Firestore 리스너 오류:',e);
+      showSyncStatus('error');
+      try{render();}catch(ex){}
     }
-    // 모든 탭 데이터 동기화
-    try{render();}catch(ex){}            // 대시보드
-    try{renderChList();}catch(ex){}      // 기록 탭
-    try{renderCal();}catch(ex){}         // 근태(달력) 탭
-    try{renderLeavePage();}catch(ex){}   // 휴가 탭
-    try{getLeaveConfigYear();}catch(ex){}
-    try{updateTabColors(curView||'dashboard');}catch(ex){}
-    if(curView==='settings') try{initPushUI();}catch(ex){}
-    showSyncStatus('synced');
-  },function(e){
-    console.error('Firestore 리스너 오류:',e);
-    showSyncStatus('error');
-    // 오프라인 시 로컬 데이터로 폴백
-    try{render();}catch(ex){}
-  });
+  );
 }
 
 function showSyncStatus(state){
@@ -740,12 +740,12 @@ function showSyncStatus(state){
 
 // ─── Firestore 저장 (debounce) ────────────────────────────────────────────────
 var _saveTimer=null;
-var _syncDoneTimer=null;
 function saveToFirestore(){
   if(!currentUid) return;
   if(_saveTimer) clearTimeout(_saveTimer);
   showSyncStatus('saving');
   _saveTimer=setTimeout(function(){
+    _localSaveTs=Date.now(); // 저장 시각 기록 → onSnapshot에서 1.5초 내 무시
     db.collection('users').doc(currentUid).set({
       records:records,
       settings:settings,
@@ -760,10 +760,6 @@ function saveToFirestore(){
       console.error('저장 실패:',e);
       showSyncStatus('error');
     });
-    // 안전장치: 3초 후에도 플래그 남아있으면 강제 해제
-    if(_syncDoneTimer) clearTimeout(_syncDoneTimer);
-    _syncDoneTimer=setTimeout(function(){
-    },3000);
   },800);
 }
 
