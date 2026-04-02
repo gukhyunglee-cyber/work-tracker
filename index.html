@@ -739,7 +739,7 @@ function loadFromFirestore(){
       try{renderLeavePage();}catch(ex){}
       try{getLeaveConfigYear();}catch(ex){}
       try{updateTabColors(curView||'dashboard');}catch(ex){}
-      if(curView==='settings') try{initPushUI();}catch(ex){}
+      if(curView==='settings'){try{initPushUI();}catch(ex){}try{loadUserCount();}catch(ex){}}
       showSyncStatus('synced');
     },
     function(e){
@@ -1240,7 +1240,7 @@ function setView(v,dir){
   updateTabColors(v);
   try{render();}catch(e){}
   if(v==='leave-page') try{renderLeavePage();}catch(e){}
-  if(v==='settings') try{initPushUI();}catch(e){}
+  if(v==='settings'){try{initPushUI();}catch(e){}try{loadUserCount();}catch(e){}}
 }
 function updateTabColors(activeId){
   var inactiveColor = isLight ? '#5a6380' : '#c4cde0';
