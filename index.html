@@ -684,7 +684,6 @@ auth.onAuthStateChanged(function(user){
 
 // ─── Firestore 실시간 동기화 ──────────────────────────────────────────────────
 var _unsubscribe=null;  // 리스너 해제용
-var _isSaving=false;    // 내가 저장 중일 때 snapshot 무시
 
 function loadFromFirestore(){
   if(!currentUid) return;
@@ -695,9 +694,10 @@ function loadFromFirestore(){
   showSyncStatus('connecting');
 
   // onSnapshot: 실시간 리스너 (다른 기기 변경도 즉시 반영)
-  _unsubscribe=db.collection('users').doc(currentUid).onSnapshot(function(doc){
-    // 내가 저장 중일 때 발생하는 snapshot은 무시 (무한루프 방지)
-    if(_isSaving) return;
+  _unsubscribe=db.collection('users').doc(currentUid).onSnapshot({includeMetadataChanges:false},function(doc){
+    // hasPendingWrites=true: 내 기기 저장 직후 → 무시하지 않고 서버 확정본만 처리
+    // fromCache=true: 로컬 캐시 → 첫 로드시에만 사용
+    if(doc.metadata&&doc.metadata.hasPendingWrites) return; // 내 기기 저장 반향 무시
     if(doc.exists){
       var d=doc.data();
       // 서버 타임스탬프 기반 - 로컬보다 최신이면 적용
@@ -746,7 +746,6 @@ function saveToFirestore(){
   if(_saveTimer) clearTimeout(_saveTimer);
   showSyncStatus('saving');
   _saveTimer=setTimeout(function(){
-    _isSaving=true;
     db.collection('users').doc(currentUid).set({
       records:records,
       settings:settings,
@@ -756,17 +755,14 @@ function saveToFirestore(){
       theme:isLight?'light':'dark',
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     }).then(function(){
-      _isSaving=false;
       showSyncStatus('synced');
     }).catch(function(e){
       console.error('저장 실패:',e);
-      _isSaving=false;
       showSyncStatus('error');
     });
     // 안전장치: 3초 후에도 플래그 남아있으면 강제 해제
     if(_syncDoneTimer) clearTimeout(_syncDoneTimer);
     _syncDoneTimer=setTimeout(function(){
-      if(_isSaving){_isSaving=false;showSyncStatus('synced');}
     },3000);
   },800);
 }
