@@ -235,6 +235,8 @@ html[data-theme="light"] [style*="border:1px solid #1c2238"]{border-color:var(--
 html[data-theme="light"] #stat-worked{color:var(--text)!important;}
 html[data-theme="light"] .stat-val{color:var(--text);}
 html[data-theme="light"] .rec-col .val3{color:var(--text);}
+html[data-theme="light"] .today-cell .val{color:var(--text)!important;}
+html[data-theme="light"] #t-in,html[data-theme="light"] #t-out,html[data-theme="light"] #t-worked{color:var(--text)!important;}
 html[data-theme="light"] #alarm-banner{background:#fef9c3;border-bottom-color:#fde047;}
 html[data-theme="light"] #alarm-banner span{color:#78350f;}
 html[data-theme="light"] .leave-preview{color:var(--sub);}
@@ -266,7 +268,7 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
-      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.1</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.2</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
@@ -703,16 +705,13 @@ function loadFromFirestore(){
   _unsubscribe=db.collection('users').doc(currentUid).onSnapshot(
     {includeMetadataChanges:true},
     function(doc){
-      // 내 기기가 2.5초 이내에 저장한 것은 무시 (무한루프 방지)
       var now=Date.now();
       if(now - _localSaveTs < 2500) return;
 
-      // 로컬 저장 시각이 Firestore보다 최신이면 → 로컬 데이터를 Firestore에 업로드
       var localTs=parseInt(safeGet('wt_local_ts','0'))||0;
       if(doc.exists&&doc.data().updatedAt){
         var fsTs=doc.data().updatedAt.toMillis?doc.data().updatedAt.toMillis():0;
         if(localTs > fsTs + 3000){
-          // 로컬이 더 최신 → Firestore로 업로드 (새로고침 전 저장 못한 데이터 복구)
           console.log('로컬 데이터가 더 최신 → Firestore 업로드');
           saveToFirestore();
           return;
@@ -725,14 +724,15 @@ function loadFromFirestore(){
         if(d.settings) settings=d.settings;
         if(d.customHolidays) customHolidays=new Set(d.customHolidays);
         if(d.leaveConfig) leaveConfig=d.leaveConfig;
-        // theme, use24h는 기기별 설정 → Firestore에서 덮어쓰지 않음
-        // 로컬 캐시 업데이트
         try{var _rs=JSON.stringify(records);safeSet('wt_rec',_rs);_mem['wt_rec']=_rs;}catch(ex){}
         try{safeSet('wt_set',JSON.stringify(settings));}catch(ex){}
         try{safeSet('wt_ch',JSON.stringify(Array.from(customHolidays)));}catch(ex){}
         try{safeSet('wt_lc',JSON.stringify(leaveConfig));}catch(ex){}
+      } else {
+        // 최초 로그인 시 데이터 없으면 빈 문서 생성 (등록자 수 누락 방지)
+        saveToFirestore();
       }
-      // 모든 탭 렌더링
+
       try{render();}catch(ex){}
       try{renderChList();}catch(ex){}
       try{renderCal();}catch(ex){}
@@ -1839,16 +1839,13 @@ function loadUserCount(){
   if(!currentUid||!db) return;
   var el=document.getElementById('user-count-val');
   var dl=document.getElementById('user-count-date');
-  // users 컬렉션 카운트 (count() 쿼리 사용 - 더 효율적)
-  db.collection('users').get().then(function(snap){
-    if(el) el.textContent=snap.size+'명';
+  db.collection('users').count().get().then(function(snap){
+    if(el) el.textContent=snap.data().count+'명';
     if(dl) dl.textContent='마지막 조회: '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-    console.log('등록자수:', snap.size);
+    console.log('등록자수:', snap.data().count);
   }).catch(function(e){
     console.error('등록자수 조회 실패:', e.code, e.message);
-    // Firestore 실패 시 Auth 방식으로 대체
     try{
-      // 현재 로그인 유저 정보로 최소 1명 표시
       if(auth.currentUser){
         if(el) el.textContent='1명+';
         if(dl) dl.textContent='(전체 조회 권한 필요)';
