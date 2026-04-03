@@ -235,8 +235,7 @@ html[data-theme="light"] [style*="border:1px solid #1c2238"]{border-color:var(--
 html[data-theme="light"] #stat-worked{color:var(--text)!important;}
 html[data-theme="light"] .stat-val{color:var(--text);}
 html[data-theme="light"] .rec-col .val3{color:var(--text);}
-html[data-theme="light"] .today-cell .val{color:var(--text)!important;}
-html[data-theme="light"] #t-in,html[data-theme="light"] #t-out,html[data-theme="light"] #t-worked{color:var(--text)!important;}
+/* t-in, t-out은 JS에서 색상 설정 → 라이트모드에서도 그대로 유지 */
 html[data-theme="light"] #alarm-banner{background:#fef9c3;border-bottom-color:#fde047;}
 html[data-theme="light"] #alarm-banner span{color:#78350f;}
 html[data-theme="light"] .leave-preview{color:var(--sub);}
@@ -1115,7 +1114,7 @@ function render(){
   tout.style.color=rec.checkOut?'#f59e0b':'#3d4a6a';
   var tw2=document.getElementById('t-worked');
   tw2.textContent=tw!==null?fmtMin(tw):'--:--';
-  tw2.style.color=tw!==null?'#eef2ff':'#3d4a6a';
+  tw2.style.color=tw!==null?(isLight?'#0f172a':'#eef2ff'):(isLight?'#94a3b8':'#3d4a6a');
 
   // 버튼
   var bin=document.getElementById('btn-in');
@@ -1839,10 +1838,10 @@ function loadUserCount(){
   if(!currentUid||!db) return;
   var el=document.getElementById('user-count-val');
   var dl=document.getElementById('user-count-date');
-  db.collection('users').count().get().then(function(snap){
-    if(el) el.textContent=snap.data().count+'명';
+  db.collection('users').get().then(function(snap){
+    if(el) el.textContent=snap.size+'명';
     if(dl) dl.textContent='마지막 조회: '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-    console.log('등록자수:', snap.data().count);
+    console.log('등록자수:', snap.size);
   }).catch(function(e){
     console.error('등록자수 조회 실패:', e.code, e.message);
     try{
