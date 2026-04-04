@@ -473,19 +473,19 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
 </div><!-- /cal-modal -->
 
   <div id="tabbar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;">
-    <button class="tab-btn" onclick="pushViewHistory('dashboard');setView('dashboard')" id="tab-dashboard">
+    <button class="tab-btn" onclick="setView('dashboard')" id="tab-dashboard">
       <span class="tab-icon">◈</span><span class="tab-lbl">대시보드</span>
     </button>
-    <button class="tab-btn" onclick="pushViewHistory('records');setView('records')" id="tab-records">
+    <button class="tab-btn" onclick="setView('records')" id="tab-records">
       <span class="tab-icon">≡</span><span class="tab-lbl">기록</span>
     </button>
-    <button class="tab-btn" onclick="pushViewHistory('cal');openCal()" id="tab-cal">
+    <button class="tab-btn" onclick="openCal()" id="tab-cal">
       <span class="tab-icon">📅</span><span class="tab-lbl">근태</span>
     </button>
-    <button class="tab-btn" onclick="pushViewHistory('leave-page');setView('leave-page')" id="tab-leave-page">
+    <button class="tab-btn" onclick="setView('leave-page')" id="tab-leave-page">
       <span class="tab-icon">🏖</span><span class="tab-lbl">휴가</span>
     </button>
-    <button class="tab-btn" onclick="pushViewHistory('settings');setView('settings')" id="tab-settings">
+    <button class="tab-btn" onclick="setView('settings')" id="tab-settings">
       <span class="tab-icon">⚙</span><span class="tab-lbl">설정</span>
     </button>
   </div>
@@ -1240,6 +1240,8 @@ function setView(v,dir){
   try{render();}catch(e){}
   if(v==='leave-page') try{renderLeavePage();}catch(e){}
   if(v==='settings'){try{initPushUI();}catch(e){}try{loadUserCount();}catch(e){}}
+  // 히스토리 추가 (뒤로가기 지원)
+  if(typeof pushViewHistory==='function') try{pushViewHistory(v);}catch(ex){}
 }
 function updateTabColors(activeId){
   var inactiveColor = isLight ? '#5a6380' : '#c4cde0';
@@ -1855,25 +1857,22 @@ function loadUserCount(){
 
 
 // ─── 안드로이드 뒤로가기 버튼 처리 ──────────────────────────────────────────
-// ─── 뒤로가기: 내부 스택 + 항상 popstate 보장 방식 ────────────────────────────
-var _viewStack=['dashboard']; // 내부 뷰 스택
-var _handlingBack=false;      // 중복 처리 방지
-var _lastBackTs=0;
+// ─── 뒤로가기: 히스토리 기반, 빠른 연속 or 히스토리 끝에서만 앱 탈출 ────────
+var _lastBackTs=0; // 마지막 뒤로가기 시각
 
 function pushViewHistory(v){
-  if(_handlingBack) return;
-  if(_viewStack.length>0&&_viewStack[_viewStack.length-1]===v) return;
-  _viewStack.push(v);
-  // 브라우저 히스토리에도 push (popstate 발생용)
+  // 각 탭 전환마다 history에 push
+  // 단, setView 내부에서 popstate 처리 중 재귀 호출 방지
+  if(_handlingPop) return;
   history.pushState({view:v},'','');
 }
 
-window.addEventListener('popstate',function(e){
-  if(_handlingBack) return;
-  _handlingBack=true;
+var _handlingPop=false;
 
+window.addEventListener('popstate',function(e){
+  var state=e.state;
   var now=Date.now();
-  var isFast=(now-_lastBackTs)<500;
+  var isFast=(now-_lastBackTs)<600; // 0.6초 내 연속 빽 = 빠른 연속
   _lastBackTs=now;
 
   // 1. 모달 닫기
@@ -1883,7 +1882,6 @@ window.addEventListener('popstate',function(e){
     if(m&&m.classList.contains('open')){
       m.classList.remove('open');
       history.pushState({view:curView},'','');
-      _handlingBack=false;
       return;
     }
   }
@@ -1893,32 +1891,28 @@ window.addEventListener('popstate',function(e){
   if(calM&&calM.classList.contains('open')){
     closeCal();
     history.pushState({view:'dashboard'},'','');
-    _handlingBack=false;
     return;
   }
 
-  // 3. 내부 스택에 이전 뷰 있으면 복원
-  if(_viewStack.length>1){
-    _viewStack.pop();
-    var prev=_viewStack[_viewStack.length-1];
-    if(prev==='cal') openCal('right');
-    else setView(prev,'right');
-    // 브라우저 히스토리 재push (다음 빽도 잡기 위해)
-    history.pushState({view:prev},'','');
-    _handlingBack=false;
+  // 3. 이전 뷰로 복원
+  if(state&&state.view&&state.view!=='__exit__'){
+    _handlingPop=true;
+    if(state.view==='cal') openCal('right');
+    else setView(state.view,'right');
+    _handlingPop=false;
     return;
   }
 
-  // 4. 스택 바닥 → 종료 확인
+  // 4. 히스토리 끝(__exit__ 또는 state없음) 또는 빠른 연속 → 앱 탈출
   if(isFast){
-    // 빠른 연속 → 탈출 (브라우저 기본 동작)
-    _handlingBack=false;
-    return;
+    // 빠른 연속 → 바로 탈출
+    return; // 브라우저 기본 동작 허용
+  } else {
+    // 히스토리 끝 → 탈출 확인
+    showExitToast();
+    // 탈출 방지용 재push
+    history.pushState({view:curView},'','');
   }
-  showExitToast();
-  // 앱 안에 머물도록 다시 push
-  history.pushState({view:curView},'','');
-  _handlingBack=false;
 });
 
 function showExitToast(){
@@ -1930,7 +1924,8 @@ function showExitToast(){
     document.body.appendChild(t);
   }
   t.textContent='빠르게 한 번 더 누르면 종료됩니다';
-  t.style.display='block';t.style.opacity='1';
+  t.style.display='block';
+  t.style.opacity='1';
   clearTimeout(t._timer);
   t._timer=setTimeout(function(){
     t.style.opacity='0';
@@ -1938,8 +1933,8 @@ function showExitToast(){
   },1800);
 }
 
-// 초기 히스토리: 앱 시작 시 2개 쌓아서 첫 빽도 popstate로 잡힘
-history.replaceState({view:'__root__'},'','');
+// 초기 히스토리: 탈출 방지 앵커 + 대시보드
+history.replaceState({view:'__exit__'},'','');
 history.pushState({view:'dashboard'},'','');
 
 // ─── 좌우 스와이프 페이지 전환 (document 레벨) ───────────────────────────────
@@ -1975,20 +1970,22 @@ history.pushState({view:'dashboard'},'','');
     var lm=document.getElementById('leave-modal');
     if(lm&&lm.classList.contains('open')) lm.classList.remove('open');
     if(dx<0){
+      // 왼쪽 스와이프: 다음 탭 (마지막=설정이면 대시보드로)
       var nextIdx=(idx+1)%VIEWS.length;
       var next=VIEWS[nextIdx];
-      pushViewHistory(next);
       if(next==='cal') openCal('left'); else setView(next,'left');
     } else if(dx>0){
+      // 오른쪽 스와이프: 이전 탭 (첫번째=대시보드이면 설정으로)
       var prevIdx=(idx-1+VIEWS.length)%VIEWS.length;
       var prev=VIEWS[prevIdx];
-      pushViewHistory(prev);
       if(prev==='cal') openCal('right'); else setView(prev,'right');
     }
   },{passive:true});
 })();
 
+_handlingPop=true; // 초기화 시 history push 방지
 try{setView('dashboard');}catch(e){console.error('setView',e);}
+_handlingPop=false;
 try{tickClock();}catch(e){}
 try{renderChList();}catch(e){}
 try{updateTabColors('dashboard');}catch(e){}
@@ -2203,6 +2200,8 @@ function openCal(dir){
   updateTabColors('cal');
   renderCal();
   renderChList();
+  // 히스토리 기록
+  if(!_handlingPop) try{pushViewHistory('cal');}catch(ex){}
 }
 function closeCal(){ setView("dashboard"); }
 function calPrevMonth(){ calMon--; if(calMon<1){calMon=12;calYear--;} renderCal(); }
