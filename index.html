@@ -1240,6 +1240,8 @@ function setView(v,dir){
   try{render();}catch(e){}
   if(v==='leave-page') try{renderLeavePage();}catch(e){}
   if(v==='settings'){try{initPushUI();}catch(e){}try{loadUserCount();}catch(e){}}
+  // 히스토리 추가 (뒤로가기 지원)
+  if(typeof pushViewHistory==='function') try{pushViewHistory(v);}catch(ex){}
 }
 function updateTabColors(activeId){
   var inactiveColor = isLight ? '#5a6380' : '#c4cde0';
@@ -1859,10 +1861,10 @@ var _exitReady=false;
 
 function pushViewHistory(v){
   if(v==='dashboard'){
-    // 대시보드: 더미 스택 2개 쌓아서 뒤로가기가 바로 종료 안되게
-    history.replaceState({view:'dashboard',root:true},'','');
-    history.pushState({view:'dashboard',dummy:true},'','');
+    // 대시보드: replaceState로 현재 스택 교체 (중복 push 방지)
+    history.replaceState({view:'dashboard'},'','');
   } else {
+    // 다른 탭: pushState로 히스토리 추가
     history.pushState({view:v},'','');
   }
 }
@@ -1885,28 +1887,45 @@ window.addEventListener('popstate',function(e){
   var calM=document.getElementById('cal-modal');
   if(calM&&calM.classList.contains('open')){
     closeCal();
-    history.replaceState({view:'dashboard',root:true},'','');
-    history.pushState({view:'dashboard',dummy:true},'','');
     return;
   }
 
-  // 3. 대시보드 아닌 탭이면 대시보드로
+  // 3. state에 이전 뷰 정보 있으면 복원
+  if(state&&state.view){
+    if(state.view==='dashboard'){
+      // 대시보드: 종료 확인
+      if(_exitReady){
+        _exitReady=false;
+        history.go(-1);
+      } else {
+        _exitReady=true;
+        showExitToast();
+        setTimeout(function(){_exitReady=false;},2000);
+        history.pushState({view:'dashboard'},'','');
+        // 실제 뷰도 대시보드로
+        if(curView!=='dashboard') setView('dashboard','right');
+      }
+    } else {
+      // 이전 탭으로 복원
+      if(state.view==='cal') openCal('right');
+      else setView(state.view,'right');
+    }
+    return;
+  }
+
+  // 4. state 없으면 대시보드로
   if(curView!=='dashboard'){
     setView('dashboard','right');
-    return;
-  }
-
-  // 4. 대시보드에서 뒤로가기 → 종료 확인
-  if(_exitReady){
-    _exitReady=false;
-    // 실제 뒤로가기 허용 (앱 종료)
-    history.go(-2);
   } else {
-    _exitReady=true;
-    showExitToast();
-    setTimeout(function(){_exitReady=false;},2000);
-    // 스택 다시 채워서 한번 더 눌러야 종료
-    history.pushState({view:'dashboard',dummy:true},'','');
+    if(_exitReady){
+      _exitReady=false;
+      history.go(-1);
+    } else {
+      _exitReady=true;
+      showExitToast();
+      setTimeout(function(){_exitReady=false;},2000);
+      history.pushState({view:'dashboard'},'','');
+    }
   }
 });
 
@@ -1927,9 +1946,8 @@ function showExitToast(){
   },1800);
 }
 
-// 초기 히스토리: 더미 스택 미리 쌓기
-history.replaceState({view:'dashboard',root:true},'','');
-history.pushState({view:'dashboard',dummy:true},'','');
+// 초기 히스토리
+history.replaceState({view:'dashboard'},'','');
 
 // ─── 좌우 스와이프 페이지 전환 (document 레벨) ───────────────────────────────
 (function(){
