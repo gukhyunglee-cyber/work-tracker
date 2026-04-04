@@ -1855,12 +1855,13 @@ function loadUserCount(){
 
 
 // ─── 안드로이드 뒤로가기 버튼 처리 ──────────────────────────────────────────
-var VIEWS_ORDER=['dashboard','records','cal','leave-page','settings'];
+var _exitReady=false;
 
 function pushViewHistory(v){
-  // 대시보드는 history stack 루트
   if(v==='dashboard'){
-    history.replaceState({view:'dashboard'},'','');
+    // 대시보드: 더미 스택 2개 쌓아서 뒤로가기가 바로 종료 안되게
+    history.replaceState({view:'dashboard',root:true},'','');
+    history.pushState({view:'dashboard',dummy:true},'','');
   } else {
     history.pushState({view:v},'','');
   }
@@ -1868,7 +1869,8 @@ function pushViewHistory(v){
 
 window.addEventListener('popstate',function(e){
   var state=e.state;
-  // 모달 열려있으면 모달 닫기
+
+  // 1. 모달 열려있으면 모달 닫기
   var modals=['edit-modal','hrs-modal','leave-modal','leave-edit-modal'];
   for(var i=0;i<modals.length;i++){
     var m=document.getElementById(modals[i]);
@@ -1878,30 +1880,33 @@ window.addEventListener('popstate',function(e){
       return;
     }
   }
-  // cal-modal 열려있으면 닫기
+
+  // 2. 달력 탭 열려있으면 닫기
   var calM=document.getElementById('cal-modal');
   if(calM&&calM.classList.contains('open')){
     closeCal();
-    history.pushState({view:'dashboard'},'','');
+    history.replaceState({view:'dashboard',root:true},'','');
+    history.pushState({view:'dashboard',dummy:true},'','');
     return;
   }
-  // 대시보드면 앱 종료 (브라우저 기본 뒤로가기)
-  if(!state||state.view==='dashboard'){
-    // 한번 더 눌러야 종료되도록 안내
-    if(window._exitReady){
-      history.go(-1); // 실제 종료
-    } else {
-      window._exitReady=true;
-      showExitToast();
-      setTimeout(function(){window._exitReady=false;},2000);
-      history.pushState({view:'dashboard'},'',''); // 스택 유지
-    }
+
+  // 3. 대시보드 아닌 탭이면 대시보드로
+  if(curView!=='dashboard'){
+    setView('dashboard','right');
     return;
   }
-  // 이전 탭으로 이동
-  if(state.view){
-    if(state.view==='cal') openCal('right');
-    else setView(state.view,'right');
+
+  // 4. 대시보드에서 뒤로가기 → 종료 확인
+  if(_exitReady){
+    _exitReady=false;
+    // 실제 뒤로가기 허용 (앱 종료)
+    history.go(-2);
+  } else {
+    _exitReady=true;
+    showExitToast();
+    setTimeout(function(){_exitReady=false;},2000);
+    // 스택 다시 채워서 한번 더 눌러야 종료
+    history.pushState({view:'dashboard',dummy:true},'','');
   }
 });
 
@@ -1910,7 +1915,7 @@ function showExitToast(){
   if(!t){
     t=document.createElement('div');
     t.id='exit-toast';
-    t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;font-family:Noto Sans KR,sans-serif;white-space:nowrap;';
+    t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:12px 24px;border-radius:24px;font-size:14px;z-index:9999;font-family:Noto Sans KR,sans-serif;white-space:nowrap;transition:opacity .3s;';
     document.body.appendChild(t);
   }
   t.textContent='한 번 더 누르면 종료됩니다';
@@ -1922,8 +1927,9 @@ function showExitToast(){
   },1800);
 }
 
-// 초기 히스토리 설정
-history.replaceState({view:'dashboard'},'','');
+// 초기 히스토리: 더미 스택 미리 쌓기
+history.replaceState({view:'dashboard',root:true},'','');
+history.pushState({view:'dashboard',dummy:true},'','');
 
 // ─── 좌우 스와이프 페이지 전환 (document 레벨) ───────────────────────────────
 (function(){
