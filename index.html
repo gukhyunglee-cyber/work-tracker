@@ -473,19 +473,19 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
 </div><!-- /cal-modal -->
 
   <div id="tabbar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;">
-    <button class="tab-btn" onclick="setView('dashboard')" id="tab-dashboard">
+    <button class="tab-btn" onclick="pushViewHistory('dashboard');setView('dashboard')" id="tab-dashboard">
       <span class="tab-icon">◈</span><span class="tab-lbl">대시보드</span>
     </button>
-    <button class="tab-btn" onclick="setView('records')" id="tab-records">
+    <button class="tab-btn" onclick="pushViewHistory('records');setView('records')" id="tab-records">
       <span class="tab-icon">≡</span><span class="tab-lbl">기록</span>
     </button>
-    <button class="tab-btn" onclick="openCal()" id="tab-cal">
+    <button class="tab-btn" onclick="pushViewHistory('cal');openCal()" id="tab-cal">
       <span class="tab-icon">📅</span><span class="tab-lbl">근태</span>
     </button>
-    <button class="tab-btn" onclick="setView('leave-page')" id="tab-leave-page">
+    <button class="tab-btn" onclick="pushViewHistory('leave-page');setView('leave-page')" id="tab-leave-page">
       <span class="tab-icon">🏖</span><span class="tab-lbl">휴가</span>
     </button>
-    <button class="tab-btn" onclick="setView('settings')" id="tab-settings">
+    <button class="tab-btn" onclick="pushViewHistory('settings');setView('settings')" id="tab-settings">
       <span class="tab-icon">⚙</span><span class="tab-lbl">설정</span>
     </button>
   </div>
@@ -1240,8 +1240,6 @@ function setView(v,dir){
   try{render();}catch(e){}
   if(v==='leave-page') try{renderLeavePage();}catch(e){}
   if(v==='settings'){try{initPushUI();}catch(e){}try{loadUserCount();}catch(e){}}
-  // 히스토리 추가 (뒤로가기 지원)
-  if(typeof pushViewHistory==='function') try{pushViewHistory(v);}catch(ex){}
 }
 function updateTabColors(activeId){
   var inactiveColor = isLight ? '#5a6380' : '#c4cde0';
@@ -1857,76 +1855,70 @@ function loadUserCount(){
 
 
 // ─── 안드로이드 뒤로가기 버튼 처리 ──────────────────────────────────────────
-var _exitReady=false;
+// ─── 뒤로가기: 내부 스택 + 항상 popstate 보장 방식 ────────────────────────────
+var _viewStack=['dashboard']; // 내부 뷰 스택
+var _handlingBack=false;      // 중복 처리 방지
+var _lastBackTs=0;
 
 function pushViewHistory(v){
-  if(v==='dashboard'){
-    // 대시보드: 보호용 더미 항상 push (뒤로가기 즉시 종료 방지)
-    history.replaceState({view:'dashboard'},'','');
-    history.pushState({view:'dashboard',guard:true},'','');
-  } else {
-    history.pushState({view:v},'','');
-  }
+  if(_handlingBack) return;
+  if(_viewStack.length>0&&_viewStack[_viewStack.length-1]===v) return;
+  _viewStack.push(v);
+  // 브라우저 히스토리에도 push (popstate 발생용)
+  history.pushState({view:v},'','');
 }
 
 window.addEventListener('popstate',function(e){
-  var state=e.state;
+  if(_handlingBack) return;
+  _handlingBack=true;
 
-  // 1. 모달 열려있으면 모달 닫기
+  var now=Date.now();
+  var isFast=(now-_lastBackTs)<500;
+  _lastBackTs=now;
+
+  // 1. 모달 닫기
   var modals=['edit-modal','hrs-modal','leave-modal','leave-edit-modal'];
   for(var i=0;i<modals.length;i++){
     var m=document.getElementById(modals[i]);
     if(m&&m.classList.contains('open')){
       m.classList.remove('open');
       history.pushState({view:curView},'','');
+      _handlingBack=false;
       return;
     }
   }
 
-  // 2. 달력 탭 열려있으면 닫기
+  // 2. 달력 닫기
   var calM=document.getElementById('cal-modal');
   if(calM&&calM.classList.contains('open')){
     closeCal();
+    history.pushState({view:'dashboard'},'','');
+    _handlingBack=false;
     return;
   }
 
-  // 3. state에 이전 뷰 정보 있으면 복원
-  if(state&&state.view){
-    if(state.view==='dashboard'){
-      // 대시보드: 종료 확인
-      if(_exitReady){
-        _exitReady=false;
-        history.go(-1);
-      } else {
-        _exitReady=true;
-        showExitToast();
-        setTimeout(function(){_exitReady=false;},2000);
-        history.pushState({view:'dashboard'},'','');
-        // 실제 뷰도 대시보드로
-        if(curView!=='dashboard') setView('dashboard','right');
-      }
-    } else {
-      // 이전 탭으로 복원
-      if(state.view==='cal') openCal('right');
-      else setView(state.view,'right');
-    }
+  // 3. 내부 스택에 이전 뷰 있으면 복원
+  if(_viewStack.length>1){
+    _viewStack.pop();
+    var prev=_viewStack[_viewStack.length-1];
+    if(prev==='cal') openCal('right');
+    else setView(prev,'right');
+    // 브라우저 히스토리 재push (다음 빽도 잡기 위해)
+    history.pushState({view:prev},'','');
+    _handlingBack=false;
     return;
   }
 
-  // 4. state 없으면 대시보드로
-  if(curView!=='dashboard'){
-    setView('dashboard','right');
-  } else {
-    if(_exitReady){
-      _exitReady=false;
-      history.go(-1);
-    } else {
-      _exitReady=true;
-      showExitToast();
-      setTimeout(function(){_exitReady=false;},2000);
-      history.pushState({view:'dashboard'},'','');
-    }
+  // 4. 스택 바닥 → 종료 확인
+  if(isFast){
+    // 빠른 연속 → 탈출 (브라우저 기본 동작)
+    _handlingBack=false;
+    return;
   }
+  showExitToast();
+  // 앱 안에 머물도록 다시 push
+  history.pushState({view:curView},'','');
+  _handlingBack=false;
 });
 
 function showExitToast(){
@@ -1934,21 +1926,21 @@ function showExitToast(){
   if(!t){
     t=document.createElement('div');
     t.id='exit-toast';
-    t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:12px 24px;border-radius:24px;font-size:14px;z-index:9999;font-family:Noto Sans KR,sans-serif;white-space:nowrap;transition:opacity .3s;';
+    t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:12px 24px;border-radius:24px;font-size:14px;z-index:9999;font-family:Noto Sans KR,sans-serif;white-space:nowrap;transition:opacity .3s;pointer-events:none;';
     document.body.appendChild(t);
   }
-  t.textContent='한 번 더 누르면 종료됩니다';
-  t.style.display='block';
-  t.style.opacity='1';
-  setTimeout(function(){
+  t.textContent='빠르게 한 번 더 누르면 종료됩니다';
+  t.style.display='block';t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(function(){
     t.style.opacity='0';
     setTimeout(function(){t.style.display='none';},300);
   },1800);
 }
 
-// 초기 히스토리: 보호 스택 포함
-history.replaceState({view:'dashboard'},'','');
-history.pushState({view:'dashboard',guard:true},'','');
+// 초기 히스토리: 앱 시작 시 2개 쌓아서 첫 빽도 popstate로 잡힘
+history.replaceState({view:'__root__'},'','');
+history.pushState({view:'dashboard'},'','');
 
 // ─── 좌우 스와이프 페이지 전환 (document 레벨) ───────────────────────────────
 (function(){
@@ -1983,14 +1975,14 @@ history.pushState({view:'dashboard',guard:true},'','');
     var lm=document.getElementById('leave-modal');
     if(lm&&lm.classList.contains('open')) lm.classList.remove('open');
     if(dx<0){
-      // 왼쪽 스와이프: 다음 탭 (마지막=설정이면 대시보드로)
       var nextIdx=(idx+1)%VIEWS.length;
       var next=VIEWS[nextIdx];
+      pushViewHistory(next);
       if(next==='cal') openCal('left'); else setView(next,'left');
     } else if(dx>0){
-      // 오른쪽 스와이프: 이전 탭 (첫번째=대시보드이면 설정으로)
       var prevIdx=(idx-1+VIEWS.length)%VIEWS.length;
       var prev=VIEWS[prevIdx];
+      pushViewHistory(prev);
       if(prev==='cal') openCal('right'); else setView(prev,'right');
     }
   },{passive:true});
@@ -2198,13 +2190,16 @@ function renderChList(){
 
 // ─── 달력 ─────────────────────────────────────────────────────────────────
 var calYear=0, calMon=0;
-function openCal(){
+function openCal(dir){
   var now=new Date();
   if(calYear===0){ calYear=now.getFullYear(); calMon=now.getMonth()+1; }
   curView='cal';
-  // 모든 뷰 숨기기
-  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
-  document.getElementById('cal-modal').classList.add('open');
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active','slide-in-left','slide-in-right','slide-out-left','slide-out-right'));
+  var calEl=document.getElementById('cal-modal');
+  calEl.classList.remove('slide-in-left','slide-in-right');
+  if(dir==='left') calEl.classList.add('open','slide-in-left');
+  else if(dir==='right') calEl.classList.add('open','slide-in-right');
+  else calEl.classList.add('open');
   updateTabColors('cal');
   renderCal();
   renderChList();
