@@ -1855,22 +1855,23 @@ function loadUserCount(){
 
 
 // ─── 안드로이드 뒤로가기 버튼 처리 ──────────────────────────────────────────
-// ─── 뒤로가기: 내부 스택 방식 (browser history 의존 최소화) ──────────────────
-var _viewStack=[]; // 직접 관리하는 뷰 스택
+// ─── 뒤로가기: 내부 스택 + 항상 popstate 보장 방식 ────────────────────────────
+var _viewStack=['dashboard']; // 내부 뷰 스택
+var _handlingBack=false;      // 중복 처리 방지
 var _lastBackTs=0;
-var _handlingPop=false;
 
 function pushViewHistory(v){
-  if(_handlingPop) return;
-  // 같은 뷰 연속 push 방지
+  if(_handlingBack) return;
   if(_viewStack.length>0&&_viewStack[_viewStack.length-1]===v) return;
   _viewStack.push(v);
-  history.pushState({idx:_viewStack.length-1,view:v},'','');
-  console.log('push:',v,'stack:',JSON.stringify(_viewStack));
+  // 브라우저 히스토리에도 push (popstate 발생용)
+  history.pushState({view:v},'','');
 }
 
-// 뒤로가기 이벤트
 window.addEventListener('popstate',function(e){
+  if(_handlingBack) return;
+  _handlingBack=true;
+
   var now=Date.now();
   var isFast=(now-_lastBackTs)<500;
   _lastBackTs=now;
@@ -1881,8 +1882,8 @@ window.addEventListener('popstate',function(e){
     var m=document.getElementById(modals[i]);
     if(m&&m.classList.contains('open')){
       m.classList.remove('open');
-      // 모달 닫으면 현재 뷰 다시 push
-      history.pushState({idx:_viewStack.length-1,view:curView},'','');
+      history.pushState({view:curView},'','');
+      _handlingBack=false;
       return;
     }
   }
@@ -1890,32 +1891,34 @@ window.addEventListener('popstate',function(e){
   // 2. 달력 닫기
   var calM=document.getElementById('cal-modal');
   if(calM&&calM.classList.contains('open')){
-    _handlingPop=true;
     closeCal();
-    _handlingPop=false;
-    history.pushState({idx:_viewStack.length-1,view:'dashboard'},'','');
+    history.pushState({view:'dashboard'},'','');
+    _handlingBack=false;
     return;
   }
 
   // 3. 내부 스택에 이전 뷰 있으면 복원
   if(_viewStack.length>1){
-    _viewStack.pop(); // 현재 뷰 제거
+    _viewStack.pop();
     var prev=_viewStack[_viewStack.length-1];
-    _handlingPop=true;
     if(prev==='cal') openCal('right');
     else setView(prev,'right');
-    _handlingPop=false;
+    // 브라우저 히스토리 재push (다음 빽도 잡기 위해)
+    history.pushState({view:prev},'','');
+    _handlingBack=false;
     return;
   }
 
-  // 4. 스택 끝 → 종료 확인
+  // 4. 스택 바닥 → 종료 확인
   if(isFast){
-    // 빠른 연속 → 탈출
+    // 빠른 연속 → 탈출 (브라우저 기본 동작)
+    _handlingBack=false;
     return;
-  } else {
-    showExitToast();
-    history.pushState({idx:0,view:curView},'','');
   }
+  showExitToast();
+  // 앱 안에 머물도록 다시 push
+  history.pushState({view:curView},'','');
+  _handlingBack=false;
 });
 
 function showExitToast(){
@@ -1935,9 +1938,9 @@ function showExitToast(){
   },1800);
 }
 
-// 초기 히스토리 & 스택
-history.replaceState({idx:0,view:'dashboard'},'','');
-_viewStack=['dashboard'];
+// 초기 히스토리: 앱 시작 시 2개 쌓아서 첫 빽도 popstate로 잡힘
+history.replaceState({view:'__root__'},'','');
+history.pushState({view:'dashboard'},'','');
 
 // ─── 좌우 스와이프 페이지 전환 (document 레벨) ───────────────────────────────
 (function(){
