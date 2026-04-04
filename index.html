@@ -1861,10 +1861,10 @@ var _exitReady=false;
 
 function pushViewHistory(v){
   if(v==='dashboard'){
-    // 대시보드: replaceState로 현재 스택 교체 (중복 push 방지)
+    // 대시보드: 보호용 더미 항상 push (뒤로가기 즉시 종료 방지)
     history.replaceState({view:'dashboard'},'','');
+    history.pushState({view:'dashboard',guard:true},'','');
   } else {
-    // 다른 탭: pushState로 히스토리 추가
     history.pushState({view:v},'','');
   }
 }
@@ -1946,8 +1946,9 @@ function showExitToast(){
   },1800);
 }
 
-// 초기 히스토리
+// 초기 히스토리: 보호 스택 포함
 history.replaceState({view:'dashboard'},'','');
+history.pushState({view:'dashboard',guard:true},'','');
 
 // ─── 좌우 스와이프 페이지 전환 (document 레벨) ───────────────────────────────
 (function(){
