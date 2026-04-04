@@ -1983,7 +1983,9 @@ history.pushState({view:'dashboard'},'','');
   },{passive:true});
 })();
 
+_handlingPop=true; // 초기화 시 history push 방지
 try{setView('dashboard');}catch(e){console.error('setView',e);}
+_handlingPop=false;
 try{tickClock();}catch(e){}
 try{renderChList();}catch(e){}
 try{updateTabColors('dashboard');}catch(e){}
@@ -2185,16 +2187,21 @@ function renderChList(){
 
 // ─── 달력 ─────────────────────────────────────────────────────────────────
 var calYear=0, calMon=0;
-function openCal(){
+function openCal(dir){
   var now=new Date();
   if(calYear===0){ calYear=now.getFullYear(); calMon=now.getMonth()+1; }
   curView='cal';
-  // 모든 뷰 숨기기
-  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
-  document.getElementById('cal-modal').classList.add('open');
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active','slide-in-left','slide-in-right','slide-out-left','slide-out-right'));
+  var calEl=document.getElementById('cal-modal');
+  calEl.classList.remove('slide-in-left','slide-in-right');
+  if(dir==='left') calEl.classList.add('open','slide-in-left');
+  else if(dir==='right') calEl.classList.add('open','slide-in-right');
+  else calEl.classList.add('open');
   updateTabColors('cal');
   renderCal();
   renderChList();
+  // 히스토리 기록
+  if(!_handlingPop) try{pushViewHistory('cal');}catch(ex){}
 }
 function closeCal(){ setView("dashboard"); }
 function calPrevMonth(){ calMon--; if(calMon<1){calMon=12;calYear--;} renderCal(); }
