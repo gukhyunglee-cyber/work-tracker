@@ -267,7 +267,7 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
-      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.2</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.3</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
@@ -1091,9 +1091,14 @@ function compute(){
   var bonusMinutes=0;
   var isBonus=false;
   if(_m2<_m1){
-    bonusMinutes=Math.floor((_m1-_m2)/60)*60; // 분 단위 버림
-    isBonus=true;
-    accumMinutes+=bonusMinutes;
+    // 각각 시간 단위 버림 후 차이 계산
+    var _m1h=Math.floor(_m1/60)*60; // 평일×8 → 시간 버림
+    var _m2h=Math.floor(_m2/60)*60; // 40×일수÷7 → 시간 버림
+    bonusMinutes=_m1h-_m2h;
+    if(bonusMinutes>0){
+      isBonus=true;
+      accumMinutes+=bonusMinutes;
+    }
   }
 
   return{allDays,monthWorked,remaining,progress,missingCnt,ms,perDayMin,remainWorkDays,leaveMinutes,effectiveRequired,chDeductMinutes,accumMinutes,isBonus,bonusMinutes};
