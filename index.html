@@ -1079,9 +1079,24 @@ function compute(){
     }
   });
   var accumMinutes=_accumWorked-_accumRequired;
-  // 검증: _accumWorked, _accumRequired 콘솔 출력
-  // console.log('여유시간 계산:', {_accumWorked, _accumRequired, accumMinutes});
-  return{allDays,monthWorked,remaining,progress,missingCnt,ms,perDayMin,remainWorkDays,leaveMinutes,effectiveRequired,chDeductMinutes,accumMinutes};
+
+  // 보너스달: method2(40×일수÷7) < method1(평일×8) 인 달
+  // 차이값(분 단위 버림)을 여유시간에 추가
+  var _parts=MONTH.split('-');
+  var _totalDays=new Date(Number(_parts[0]),Number(_parts[1]),0).getDate();
+  var _m2=Math.floor((40*60*_totalDays)/7);
+  var _cnt2=0;
+  allMonthDays.forEach(function(d){ if(isWorkday(d)) _cnt2++; });
+  var _m1=_cnt2*480;
+  var bonusMinutes=0;
+  var isBonus=false;
+  if(_m2<_m1){
+    bonusMinutes=Math.floor((_m1-_m2)/60)*60; // 분 단위 버림
+    isBonus=true;
+    accumMinutes+=bonusMinutes;
+  }
+
+  return{allDays,monthWorked,remaining,progress,missingCnt,ms,perDayMin,remainWorkDays,leaveMinutes,effectiveRequired,chDeductMinutes,accumMinutes,isBonus,bonusMinutes};
 }
 
 function render(){
@@ -1141,7 +1156,16 @@ function render(){
   var sa=document.getElementById('stat-accum');
   if(sa){
     sa.textContent=fmtMin(accumMinutes,true);
-    sa.style.color=accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8'; // 양수=초과여유=초록, 음수=부족=빨강
+    sa.style.color=accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8';
+    // 보너스달 표시
+    var bonusEl=document.getElementById('stat-bonus-lbl');
+    if(!bonusEl){
+      bonusEl=document.createElement('div');
+      bonusEl.id='stat-bonus-lbl';
+      bonusEl.style.cssText='font-size:9px;color:#f59e0b;margin-top:2px;font-weight:700;';
+      if(sa.parentNode) sa.parentNode.appendChild(bonusEl);
+    }
+    bonusEl.textContent=(_c.isBonus)?'🎁 보너스달':'';
   }
   document.getElementById('duty-label').textContent='의무: '+Math.floor(effectiveRequired/60)+'h';
   var ml=document.getElementById('missing-label');
@@ -1296,7 +1320,7 @@ function openEdit(date){
 function updatePreview(){
   var ci=parseTimeInput(document.getElementById('edit-in').value);
   var co=parseTimeInput(document.getElementById('edit-out').value);
-  var brk=parseInt(document.getElementById('edit-break').value)||60;
+  var _brkVal=document.getElementById('edit-break').value;var brk=(_brkVal===''||_brkVal===null||_brkVal===undefined)?60:Math.max(0,parseInt(_brkVal)||0);
   var pb=document.getElementById('edit-preview');
   if(validTime(ci)&&validTime(co)){pb.style.display='';pb.querySelector('strong').textContent=fmtMin(calcWorked(ci,co,brk));}
   else pb.style.display='none';
@@ -1309,7 +1333,7 @@ function saveEdit(){
   var co=coRaw?parseTimeInput(coRaw):'';
   if(ci&&!validTime(ci)){alert('출근 시간 형식이 올바르지 않습니다.\n예: 0900 또는 09:00'); return;}
   if(co&&!validTime(co)){alert('퇴근 시간 형식이 올바르지 않습니다.\n예: 1800 또는 18:00'); return;}
-  var brk=parseInt(document.getElementById('edit-break').value)||60;
+  var _brkVal=document.getElementById('edit-break').value;var brk=(_brkVal===''||_brkVal===null||_brkVal===undefined)?60:Math.max(0,parseInt(_brkVal)||0);
   records[editDate]={checkIn:ci||undefined,checkOut:co||undefined,breakMin:brk};
   save();render();closeEdit();
 }
