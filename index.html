@@ -1059,19 +1059,25 @@ function compute(){
   }
   var perDayMin = remainWorkDays>0 && remaining>0 ? Math.ceil(remaining/remainWorkDays) : null;
 
-  // 여유시간 = 전일실근무 누계 - 전일의무 누계
-  // 양수(+) = 초과 여유, 음수(-) = 부족
-  var _accumWorked=0;      // 전일 실근무 합산(분)
-  var _accumRequired=0;    // 전일 의무근무 합산(분)
-  var _DSTD=480;         // 하루 의무 8h
+  // 여유시간 = 입력완료된 날 실근무 누계 - 입력완료된 날 의무 누계
+  // 완료 기준: 출퇴근 모두 입력 OR 근태 입력 (오늘 포함)
+  var _accumWorked=0;
+  var _accumRequired=0;
+  var _DSTD=480;
   allDays.forEach(function(_d){
-    if(_d>=TODAY) return;
     if(!isWorkday(_d)) return;
     if(customHolidays.has(_d)) return;
     var _rv=records[_d]||{};
-    if(_rv.leave&&_rv.leave.type!=='유급근태') return;
+    var _hasLeave=_rv.leave&&_rv.leave.type;
+    var _hasBoth=_rv.checkIn&&_rv.checkOut;
+    // 완료 조건: 근태 입력 OR 출퇴근 모두 입력
+    if(!_hasLeave&&!_hasBoth) return;
+    if(_hasLeave&&_rv.leave.type!=='유급근태'){
+      // 근태(유급근태 외): 의무시간 차감되므로 의무에서 제외
+      return;
+    }
     _accumRequired+=_DSTD;
-    if((_rv.leave&&_rv.leave.type)==='유급근태'){
+    if(_hasLeave&&_rv.leave.type==='유급근태'){
       _accumWorked+=_DSTD;
     } else {
       var _w=calcWorked(_rv.checkIn,_rv.checkOut,_rv.breakMin);
