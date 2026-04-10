@@ -175,8 +175,8 @@ input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.5);}
 .leave-type-btn .lt-sub{font-size:10px;color:#8b9ab8;margin-top:2px;}
 
 /* 달력 모달 */
-#cal-modal{display:none;padding:0;overflow:hidden;height:calc(100vh - 56px);height:calc(100svh - 56px);}
-#cal-modal.open{display:flex;flex-direction:column;}
+#cal-modal{display:none;padding:0;overflow:hidden;position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;bottom:0;}
+#cal-modal.open{display:flex;flex-direction:column;z-index:100;}
 .cal-sheet{background:var(--bg);padding:0;width:100%;flex:1;display:flex;flex-direction:column;overflow:hidden;height:100%;}
 .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
 .cal-nav{background:none;border:none;color:#8b9ab8;font-size:20px;cursor:pointer;padding:4px 10px;border-radius:6px;}
@@ -267,7 +267,7 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
-      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.3</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.2</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
@@ -1079,29 +1079,9 @@ function compute(){
     }
   });
   var accumMinutes=_accumWorked-_accumRequired;
-
-  // 보너스달: method2(40×일수÷7) < method1(평일×8) 인 달
-  // 차이값(분 단위 버림)을 여유시간에 추가
-  var _parts=MONTH.split('-');
-  var _totalDays=new Date(Number(_parts[0]),Number(_parts[1]),0).getDate();
-  var _m2=Math.floor((40*60*_totalDays)/7);
-  var _cnt2=0;
-  allMonthDays.forEach(function(d){ if(isWorkday(d)) _cnt2++; });
-  var _m1=_cnt2*480;
-  var bonusMinutes=0;
-  var isBonus=false;
-  if(_m2<_m1){
-    // 각각 시간 단위 버림 후 차이 계산
-    var _m1h=Math.floor(_m1/60)*60; // 평일×8 → 시간 버림
-    var _m2h=Math.floor(_m2/60)*60; // 40×일수÷7 → 시간 버림
-    bonusMinutes=_m1h-_m2h;
-    if(bonusMinutes>0){
-      isBonus=true;
-      accumMinutes+=bonusMinutes;
-    }
-  }
-
-  return{allDays,monthWorked,remaining,progress,missingCnt,ms,perDayMin,remainWorkDays,leaveMinutes,effectiveRequired,chDeductMinutes,accumMinutes,isBonus,bonusMinutes};
+  // 검증: _accumWorked, _accumRequired 콘솔 출력
+  // console.log('여유시간 계산:', {_accumWorked, _accumRequired, accumMinutes});
+  return{allDays,monthWorked,remaining,progress,missingCnt,ms,perDayMin,remainWorkDays,leaveMinutes,effectiveRequired,chDeductMinutes,accumMinutes};
 }
 
 function render(){
@@ -1161,20 +1141,11 @@ function render(){
   var sa=document.getElementById('stat-accum');
   if(sa){
     sa.textContent=fmtMin(accumMinutes,true);
-    sa.style.color=accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8';
-    // 보너스달 표시
-    var bonusEl=document.getElementById('stat-bonus-lbl');
-    if(!bonusEl){
-      bonusEl=document.createElement('div');
-      bonusEl.id='stat-bonus-lbl';
-      bonusEl.style.cssText='font-size:9px;color:#f59e0b;margin-top:2px;font-weight:700;';
-      if(sa.parentNode) sa.parentNode.appendChild(bonusEl);
-    }
-    bonusEl.textContent=(_c.isBonus)?'🎁 보너스달':'';
+    sa.style.color=accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8'; // 양수=초과여유=초록, 음수=부족=빨강
   }
   document.getElementById('duty-label').textContent='의무: '+Math.floor(effectiveRequired/60)+'h';
   var ml=document.getElementById('missing-label');
-  if(ml){ml.style.display=missingCnt>0?'':'none';ml.textContent='미입력 '+missingCnt+'일';}
+  if(ml){ml.style.display='none';} // 미입력 표시 비활성화
 
   // 기록
   document.getElementById('rec-month-lbl').textContent=MONTH.replace('-','년 ')+'월 근무 기록';
@@ -1184,7 +1155,7 @@ function render(){
     var worked=calcWorked(r.checkIn,r.checkOut,r.breakMin);
     var off=isWeekend(d)||isHoliday(d);
     var dayNum=new Date(d+'T12:00:00').getDay();
-    var missing=!off&&(!r.checkIn||!r.checkOut)&&!r.leave;
+    var missing=!off&&(!r.checkIn||!r.checkOut)&&!r.leave&&!customHolidays.has(d);
     var dc=dayNum===0?'#f43f5e':dayNum===6?'#60a5fa':'#eef2ff';
     var div=document.createElement('div');
     div.className='rec-item'+(missing?' missing':'')+(off?' off':'');
@@ -1195,8 +1166,8 @@ function render(){
         <div class="rec-col"><div class="lbl3">출근</div><div class="val3" style="color:${r.checkIn?'#22c55e':'#3d4a6a'}">${r.checkIn?fmtTime(r.checkIn):'—'}</div></div>
         <div class="rec-col"><div class="lbl3">퇴근</div><div class="val3" style="color:${r.checkOut?'#f59e0b':'#3d4a6a'}">${r.checkOut?fmtTime(r.checkOut):'—'}</div></div>
         <div class="rec-col"><div class="lbl3">근무</div>
-          <div class="val3" style="color:${off?'#8b9ab8':worked!==null?'#eef2ff':'#f43f5e'}">${off?(isHoliday(d)?'휴일':'주말'):worked!==null?fmtMin(worked):'미완료'}</div>
-          ${lv?`<div class="leave-badge leave-${lv.type}">${lv.type} -${fmtMin(lv.minutes)}</div>`:''}
+          <div class="val3" style="color:${off?'#8b9ab8':lv?'#a78bfa':worked!==null?'#eef2ff':'#f43f5e'}">${off?(isHoliday(d)?'휴일':'주말'):lv?lv.type:worked!==null?fmtMin(worked):'미완료'}</div>
+          ${lv?`<div class="leave-badge leave-${lv.type}">${fmtMin(lv.minutes)} 차감</div>`:''}
           ${(lv&&lv.memo)?`<div style="font-size:9px;color:var(--sub);margin-top:2px;">✏ ${lv.memo}</div>`:''}
           ${(!lv&&r.memo)?`<div style="font-size:9px;color:#60a5fa;margin-top:2px;">✏ ${r.memo}</div>`:''}
         </div>
@@ -1226,7 +1197,7 @@ function render(){
     ['남은 근무일',remaining<=0?'—':`${remainWorkDays}일`,'#8b9ab8'],
     ['여유시간',fmtMin(accumMinutes,true),accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8'],
     ['진행률',progress.toFixed(1)+'%','#f59e0b'],
-    ['미입력 일수',missingCnt+'일',missingCnt>0?'#f43f5e':'#8b9ab8'],
+    // 미입력 일수 표시 제거
   ].map(([l,v,c])=>`<div class="summary-row"><span style="color:#8b9ab8;font-size:13px;">${l}</span><span class="mono" style="color:${c};font-size:15px;font-weight:600;">${v}</span></div>`).join('');
 }
 
@@ -1325,7 +1296,7 @@ function openEdit(date){
 function updatePreview(){
   var ci=parseTimeInput(document.getElementById('edit-in').value);
   var co=parseTimeInput(document.getElementById('edit-out').value);
-  var _brkVal=document.getElementById('edit-break').value;var brk=(_brkVal===''||_brkVal===null||_brkVal===undefined)?60:Math.max(0,parseInt(_brkVal)||0);
+  var brk=parseInt(document.getElementById('edit-break').value)||60;
   var pb=document.getElementById('edit-preview');
   if(validTime(ci)&&validTime(co)){pb.style.display='';pb.querySelector('strong').textContent=fmtMin(calcWorked(ci,co,brk));}
   else pb.style.display='none';
@@ -1338,7 +1309,7 @@ function saveEdit(){
   var co=coRaw?parseTimeInput(coRaw):'';
   if(ci&&!validTime(ci)){alert('출근 시간 형식이 올바르지 않습니다.\n예: 0900 또는 09:00'); return;}
   if(co&&!validTime(co)){alert('퇴근 시간 형식이 올바르지 않습니다.\n예: 1800 또는 18:00'); return;}
-  var _brkVal=document.getElementById('edit-break').value;var brk=(_brkVal===''||_brkVal===null||_brkVal===undefined)?60:Math.max(0,parseInt(_brkVal)||0);
+  var brk=parseInt(document.getElementById('edit-break').value)||60;
   records[editDate]={checkIn:ci||undefined,checkOut:co||undefined,breakMin:brk};
   save();render();closeEdit();
 }
@@ -2199,6 +2170,10 @@ var calYear=0, calMon=0;
 function openCal(dir){
   var now=new Date();
   if(calYear===0){ calYear=now.getFullYear(); calMon=now.getMonth()+1; }
+  // 헤더 높이만큼 top 설정
+  var hdr=document.getElementById('header');
+  var calEl2=document.getElementById('cal-modal');
+  if(hdr&&calEl2) calEl2.style.top=(hdr.offsetHeight)+'px';
   curView='cal';
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active','slide-in-left','slide-in-right','slide-out-left','slide-out-right'));
   var calEl=document.getElementById('cal-modal');
