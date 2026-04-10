@@ -1078,7 +1078,8 @@ function compute(){
     var _hasBoth=_rv.checkIn&&_rv.checkOut;
     if(!_hasLeave&&!_hasBoth) return;
     if(_hasLeave&&_rv.leave.type==='패밀리데이'){
-      // 패밀리데이: 의무시간 차감 없음, 근무 0h → 여유시간 변동 없음
+      // 패밀리데이: 의무시간 차감 없음, 근무 0h → 여유시간 -8h
+      _accumRequired+=_DSTD; // 의무 8h 소진으로 여유시간 차감
       return;
     }
     if(_hasLeave&&_rv.leave.type!=='유급근태'){
