@@ -1079,9 +1079,28 @@ function compute(){
     }
   });
   var accumMinutes=_accumWorked-_accumRequired;
-  // 검증: _accumWorked, _accumRequired 콘솔 출력
-  // console.log('여유시간 계산:', {_accumWorked, _accumRequired, accumMinutes});
-  return{allDays,monthWorked,remaining,progress,missingCnt,ms,perDayMin,remainWorkDays,leaveMinutes,effectiveRequired,chDeductMinutes,accumMinutes};
+
+  // 보너스달: method2(40×일수÷7) < method1(평일×8) 인 달
+  // 각각 시간단위 버림 후 차이를 여유시간에 추가
+  var _parts=MONTH.split('-');
+  var _totalDays2=new Date(Number(_parts[0]),Number(_parts[1]),0).getDate();
+  var _m2b=Math.floor((40*60*_totalDays2)/7);
+  var _cntB=0;
+  allMonthDays.forEach(function(d){ if(isWorkday(d)) _cntB++; });
+  var _m1b=_cntB*480;
+  var bonusMinutes=0;
+  var isBonus=false;
+  if(_m2b<_m1b){
+    var _m1h=Math.floor(_m1b/60)*60;
+    var _m2h=Math.floor(_m2b/60)*60;
+    bonusMinutes=_m1h-_m2h;
+    if(bonusMinutes>0){
+      isBonus=true;
+      accumMinutes+=bonusMinutes;
+    }
+  }
+
+  return{allDays,monthWorked,remaining,progress,missingCnt,ms,perDayMin,remainWorkDays,leaveMinutes,effectiveRequired,chDeductMinutes,accumMinutes,isBonus,bonusMinutes};
 }
 
 function render(){
@@ -1141,7 +1160,16 @@ function render(){
   var sa=document.getElementById('stat-accum');
   if(sa){
     sa.textContent=fmtMin(accumMinutes,true);
-    sa.style.color=accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8'; // 양수=초과여유=초록, 음수=부족=빨강
+    sa.style.color=accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8';
+    // 보너스달 표시
+    var bonusEl=document.getElementById('stat-bonus-lbl');
+    if(!bonusEl){
+      bonusEl=document.createElement('div');
+      bonusEl.id='stat-bonus-lbl';
+      bonusEl.style.cssText='font-size:9px;color:#f59e0b;margin-top:2px;font-weight:700;text-align:center;';
+      sa.parentNode.appendChild(bonusEl);
+    }
+    bonusEl.textContent=_c.isBonus?'🎁 보너스달':'';
   }
   document.getElementById('duty-label').textContent='의무: '+Math.floor(effectiveRequired/60)+'h';
   var ml=document.getElementById('missing-label');
