@@ -355,6 +355,18 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <!-- 설정 -->
     <div id="view-settings" class="view">
       <div class="card">
+        <div class="lbl" style="margin-bottom:10px;">🔗 앱 URL 공유</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div id="app-url-text" style="flex:1;font-size:11px;color:var(--sub);background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:8px 10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-family:'JetBrains Mono',monospace;">
+            https://gukhyunglee-cyber.github.io/work-tracker/
+          </div>
+          <button onclick="copyAppUrl()" id="copy-url-btn" style="background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.35);border-radius:8px;padding:8px 12px;color:#f59e0b;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;flex-shrink:0;">
+            📋 복사
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="lbl" style="margin-bottom:8px;">화면 설정</div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
           <span style="font-size:12px;color:var(--text);">🌙 라이트 모드</span>
@@ -1295,6 +1307,27 @@ function updateTabColors(activeId){
 function handleCheckIn(){var r=records[TODAY]||{};records[TODAY]={...r,checkIn:nowTime(),breakMin:(r.breakMin!==undefined&&r.breakMin!==null?r.breakMin:60)};save();render();}
 function handleCheckOut(){var r=records[TODAY]||{};records[TODAY]={...r,checkOut:nowTime(),breakMin:(r.breakMin!==undefined&&r.breakMin!==null?r.breakMin:60)};save();render();}
 
+
+function copyAppUrl(){
+  var url='https://gukhyunglee-cyber.github.io/work-tracker/';
+  var btn=document.getElementById('copy-url-btn');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){
+      btn.textContent='✓ 복사됨';
+      setTimeout(function(){btn.textContent='📋 복사';},2000);
+    }).catch(function(){fallbackCopy(url,btn);});
+  } else {
+    fallbackCopy(url,btn);
+  }
+}
+function fallbackCopy(text,btn){
+  var ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');btn.textContent='✓ 복사됨';setTimeout(function(){btn.textContent='📋 복사';},2000);}
+  catch(e){btn.textContent='실패';}
+  document.body.removeChild(ta);
+}
 function toggle24h(val){use24h=val;var _tv=val?'true':'false';safeSet('wt_24h',_tv);_mem['wt_24h']=_tv;render();}
 
 
