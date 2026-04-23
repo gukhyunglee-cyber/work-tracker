@@ -268,7 +268,7 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
-      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.5</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.4</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
@@ -1124,7 +1124,7 @@ function compute(){
     bonusMinutes=_m1h-_m2h;
     if(bonusMinutes>0){
       isBonus=true;
-      // 여유시간에 보너스 미반영 (의무시간 옆에만 표시)
+      accumMinutes+=bonusMinutes;
     }
   }
 
@@ -1189,9 +1189,17 @@ function render(){
   if(sa){
     sa.textContent=fmtMin(accumMinutes,true);
     sa.style.color=accumMinutes>0?'#22c55e':accumMinutes<0?'#f43f5e':'#8b9ab8';
-    // 보너스달 표시 제거 (의무시간 옆으로 이동)
+    // 보너스달 표시
+    var bonusEl=document.getElementById('stat-bonus-lbl');
+    if(!bonusEl){
+      bonusEl=document.createElement('div');
+      bonusEl.id='stat-bonus-lbl';
+      bonusEl.style.cssText='font-size:9px;color:#f59e0b;margin-top:2px;font-weight:700;text-align:center;';
+      sa.parentNode.appendChild(bonusEl);
+    }
+    bonusEl.textContent=_c.isBonus?'🎁 보너스달':'';
   }
-  document.getElementById('duty-label').textContent='의무: '+Math.floor(effectiveRequired/60)+'h'+(_c.isBonus?' (🎁보너스달)':'');
+  document.getElementById('duty-label').textContent='의무: '+Math.floor(effectiveRequired/60)+'h';
   var ml=document.getElementById('missing-label');
   if(ml){ml.style.display='none';} // 미입력 표시 비활성화
 
@@ -2345,20 +2353,5 @@ function renderCal(){
 }
 
 </script>
-  <script>
-      if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for(let registration of registrations) { registration.unregister(); }
-            }).then(function() {
-                    if (localStorage.getItem('sw_reset') !== 'true') {
-                              localStorage.setItem('sw_reset', 'true');
-                              location.reload();
-                    }
-            });
-      } else { localStorage.removeItem('sw_reset'); }
-  </script>
- 
- 
- t>
 </body>
 </html>
