@@ -2345,5 +2345,20 @@ function renderCal(){
 }
 
 </script>
+  <script>
+      if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) { registration.unregister(); }
+            }).then(function() {
+                    if (localStorage.getItem('sw_reset') !== 'true') {
+                              localStorage.setItem('sw_reset', 'true');
+                              location.reload();
+                    }
+            });
+      } else { localStorage.removeItem('sw_reset'); }
+  </script>
+ 
+ 
+ t>
 </body>
 </html>
