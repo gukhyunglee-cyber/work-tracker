@@ -252,6 +252,17 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
 </head>
 <body>
 
+<div id="offline-scheduler-screen" style="display:none;position:fixed;inset:0;background:#0b0e1a;z-index:10000;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;color:#f3f4f6;font-family:'Noto Sans KR',sans-serif;text-align:center;">
+  <div style="font-size:56px;margin-bottom:20px;">💤</div>
+  <div style="font-size:24px;font-weight:900;margin-bottom:12px;">현재는 서버 비가동 시간대입니다</div>
+  <div style="font-size:14px;color:#9ca3af;line-height:1.6;margin-bottom:32px;font-weight:300;">
+    근무 트래커 데이터베이스의 주말 및 야간 자동 비가동 설정에 따라<br>
+    현재 시간대에는 서비스를 이용하실 수 없습니다.<br><br>
+    <span style="color:#f59e0b;font-weight:700;">가동 시간: 평일 (월~금) 08:00 ~ 22:00</span>
+  </div>
+  <div style="font-size:11px;color:#4b5563;">근무 트래커 v5.5 (비가동 모드 적용)</div>
+</div>
+
 <div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;">
   <div style="font-size:56px;margin-bottom:20px;">🕐</div>
   <div style="font-size:24px;font-weight:900;color:var(--text);margin-bottom:8px;">근무 트래커</div>
@@ -268,7 +279,7 @@ html[data-theme="light"] .quick-btn{background:var(--raised);color:var(--sub);bo
     <div>
       <div class="header-title">🕐 근무 트래커</div>
       <div class="header-sub" id="header-month"></div>
-      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.4</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:1px;" id="app-version">v5.5</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="sync-status" style="font-size:14px;font-weight:700;width:18px;text-align:center;cursor:default;"></span><img id="user-avatar" src="" style="width:28px;height:28px;border-radius:50%;display:none;cursor:pointer;margin-right:4px;" onclick="confirmSignOut()" title="로그아웃"/><button id="theme-btn" onclick="toggleTheme()" style="background:var(--raised);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--sub);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;">🌙</button>
@@ -1412,6 +1423,23 @@ function saveHrs(){
   save();render();closeHrsModal();
 }
 
+function checkServiceAvailability(){
+  var now = new Date();
+  var day = now.getDay();
+  var hour = now.getHours();
+  var isWeekend = (day === 0 || day === 6);
+  var isNight = (hour >= 22 || hour < 8);
+  
+  var overlay = document.getElementById('offline-scheduler-screen');
+  if(overlay){
+    if(isWeekend || isNight){
+      if(overlay.style.display !== 'flex') overlay.style.display = 'flex';
+    } else {
+      if(overlay.style.display !== 'none') overlay.style.display = 'none';
+    }
+  }
+}
+
 function tickClock(){
   var now=new Date();
   document.getElementById('clock').textContent=use24h
@@ -1424,6 +1452,7 @@ function tickClock(){
     if(isWorkday(t)&&!(records[t]&&records[t].checkIn&&records[t].checkOut))
       document.getElementById('alarm-banner').style.display='flex';
   }
+  checkServiceAvailability();
 }
 
 
@@ -1453,6 +1482,7 @@ try{applyTheme();}catch(e){}
 
 
 // PWA 아이콘 Canvas 생성 생략 (Safari 호환)
+tickClock();
 setInterval(tickClock,1000);
 
 
