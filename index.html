@@ -1424,19 +1424,10 @@ function saveHrs(){
 }
 
 function checkServiceAvailability(){
-  var now = new Date();
-  var day = now.getDay();
-  var hour = now.getHours();
-  var isWeekend = (day === 0 || day === 6);
-  var isNight = (hour >= 22 || hour < 8);
-  
+  // 24시간 365일 상시 가동 모드 (주말/야간 제한 해제)
   var overlay = document.getElementById('offline-scheduler-screen');
-  if(overlay){
-    if(isWeekend || isNight){
-      if(overlay.style.display !== 'flex') overlay.style.display = 'flex';
-    } else {
-      if(overlay.style.display !== 'none') overlay.style.display = 'none';
-    }
+  if(overlay && overlay.style.display !== 'none'){
+    overlay.style.display = 'none';
   }
 }
 
